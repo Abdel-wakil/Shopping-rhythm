@@ -42,6 +42,16 @@
   .mark span{color:var(--beet)}
   .saved{font-size:13px;color:var(--ink2);opacity:0;transition:opacity .4s}
   .saved.on{opacity:1}
+  .mast-right{display:flex;align-items:center;gap:10px}
+  .acct{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2)}
+  .acct img{width:22px;height:22px;border-radius:50%;display:block}
+  .acct button{font:inherit;font-size:12px;color:var(--ink2);background:none;border:0;text-decoration:underline;cursor:pointer;padding:0}
+  .acct button:hover{color:var(--beet)}
+  .signin-btn{
+    font:inherit;font-size:13px;color:var(--ink);background:none;border:1px solid var(--line);
+    border-radius:100px;padding:6px 13px;cursor:pointer;transition:border-color .15s,color .15s;
+  }
+  .signin-btn:hover{border-color:var(--beet);color:var(--beet)}
 
   /* ---- tabs ---- */
   .tabs{
@@ -198,7 +208,10 @@
 <div class="wrap">
   <div class="masthead">
     <div class="mark">Shopping <span>rhythm</span></div>
-    <div class="saved" id="saved">Saved</div>
+    <div class="mast-right">
+      <div class="saved" id="saved">Saved</div>
+      <div id="account"></div>
+    </div>
   </div>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" data-tab="home">Home</button>
@@ -210,7 +223,28 @@
   <main id="view"></main>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, onSnapshot }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA0xJy1nQqSIxt8StwiBWgAwwqvoZdFf5o",
+  authDomain: "shopping-73ac8.firebaseapp.com",
+  projectId: "shopping-73ac8",
+  storageBucket: "shopping-73ac8.firebasestorage.app",
+  messagingSenderId: "966282879097",
+  appId: "1:966282879097:web:a88dbe98c2b4f31ee534a8"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+const provider = new GoogleAuthProvider();
+
+let cloudUser = null, unsubSnapshot = null, lastCloudPayload = null;
+
 const AISLES = ["Produce","Bakery","Dairy & eggs","Chilled & deli","Meat & fish","Dry & tinned","Frozen","Drinks","Household","Other"];
 const CADENCE = {
   weekly:      {label:"every week",      every:1},
@@ -313,7 +347,13 @@ function save(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try{
-      localStorage.setItem(KEY, JSON.stringify({items:state.items, checks:state.checks, extras:state.extras, recipes:state.recipes, anchor:state.anchor, seedVersion:state.seedVersion}));
+      const payload = {items:state.items, checks:state.checks, extras:state.extras, recipes:state.recipes, anchor:state.anchor, seedVersion:state.seedVersion};
+      const json = JSON.stringify(payload);
+      localStorage.setItem(KEY, json);
+      if (cloudUser){
+        lastCloudPayload = json;
+        setDoc(doc(db, "users", cloudUser.uid), payload).catch(e => console.error("Cloud save failed", e));
+      }
       const el = document.getElementById("saved");
       el.classList.add("on");
       setTimeout(() => el.classList.remove("on"), 1400);
@@ -342,6 +382,53 @@ async function load(){
   });
   if (added) save();
 }
+
+/* ---------- cloud sync ---------- */
+function renderAccount(){
+  const el = document.getElementById("account");
+  if (!el) return;
+  if (cloudUser){
+    el.innerHTML = '<span class="acct">' +
+      (cloudUser.photoURL ? '<img src="' + esc(cloudUser.photoURL) + '" alt="">' : '') +
+      '<span>' + esc((cloudUser.displayName || "Synced").split(" ")[0]) + '</span>' +
+      '<button id="signout">Sign out</button></span>';
+    document.getElementById("signout").onclick = () => signOut(auth);
+  } else {
+    el.innerHTML = '<button class="signin-btn" id="signin">Sign in to sync</button>';
+    document.getElementById("signin").onclick = () =>
+      signInWithPopup(auth, provider).catch(e => alert("Sign-in failed: " + e.message));
+  }
+}
+function startSync(user){
+  cloudUser = user;
+  if (unsubSnapshot) unsubSnapshot();
+  unsubSnapshot = onSnapshot(doc(db, "users", user.uid), snap => {
+    if (!snap.exists()){
+      const payload = {items:state.items, checks:state.checks, extras:state.extras, recipes:state.recipes, anchor:state.anchor, seedVersion:state.seedVersion};
+      lastCloudPayload = JSON.stringify(payload);
+      setDoc(doc(db, "users", user.uid), payload).catch(e => console.error("Cloud save failed", e));
+      return;
+    }
+    const d = snap.data();
+    const payload = {items:d.items||[], checks:d.checks||{}, extras:d.extras||{}, recipes:d.recipes||[], anchor:d.anchor||state.anchor, seedVersion:d.seedVersion||0};
+    const json = JSON.stringify(payload);
+    if (json === lastCloudPayload) return;
+    lastCloudPayload = json;
+    Object.assign(state, payload);
+    localStorage.setItem(KEY, json);
+    render();
+  }, e => console.error("Sync error", e));
+}
+function stopSync(){
+  if (unsubSnapshot) unsubSnapshot();
+  unsubSnapshot = null;
+  cloudUser = null;
+  lastCloudPayload = null;
+}
+onAuthStateChanged(auth, user => {
+  if (user) startSync(user); else stopSync();
+  renderAccount();
+});
 
 /* ---------- render ---------- */
 const view = document.getElementById("view");
@@ -664,5 +751,6 @@ document.addEventListener("keydown", e => {
   if (e.target.id === "rurl" || e.target.id === "rtitle") document.querySelector("[data-add-recipe]").click();
 });
 
+renderAccount();
 load().then(render);
 </script>
