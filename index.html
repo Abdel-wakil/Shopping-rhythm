@@ -202,6 +202,18 @@
     display:grid;place-items:center;transition:background .15s;
   }
   .rdel:hover{background:var(--beet)}
+
+  /* ---- meals ---- */
+  .meal{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px}
+  .meal.ready{border-color:var(--leaf)}
+  .meal-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .meal-name{font-family:var(--serif);font-size:17px}
+  .meal-ings{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .ing{font-size:12px;padding:3px 9px;border-radius:100px;background:var(--line);color:var(--ink2)}
+  .ing.has{background:rgba(76,107,54,.16);color:var(--leaf)}
+  .ing.miss{background:rgba(138,40,70,.1);color:var(--beet)}
+  .meal-status{font-size:12px;margin:8px 0 0;color:var(--ink2)}
+  .meal-status.ready{color:var(--leaf)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -291,7 +303,20 @@ const SEEDS = [
   ]}
 ];
 
-let state = {items:[], checks:{}, extras:{}, recipes:[], anchor:null, tab:"home", offset:0, seedVersion:0};
+/* Same incremental-seeding idea as SEEDS above, but for text recipes. */
+const MEAL_SEEDS = [
+  { v:1, meals:[
+    ["Lentils with onion", ["Lentils","Onion","Bread","Chicken"]],
+    ["Rice with vegetables and chicken", ["Rice","Frozen vegetables","Chicken"]],
+    ["Pasta with meatballs", ["Pasta","Minced beef"]],
+    ["Pasta with tuna", ["Pasta","Tuna"]],
+    ["Beef burgers", ["Minced beef","Burger buns"]],
+    ["Beef tacos", ["Minced beef","Taco shells"]],
+    ["Tuna sandwich", ["Tuna","Bread","Tomato","Salad"]]
+  ]}
+];
+
+let state = {items:[], checks:{}, extras:{}, recipes:[], meals:[], anchor:null, tab:"home", offset:0, seedVersion:0, mealSeedVersion:0};
 
 /* ---------- dates ---------- */
 function monday(d){
@@ -347,7 +372,7 @@ function save(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try{
-      const payload = {items:state.items, checks:state.checks, extras:state.extras, recipes:state.recipes, anchor:state.anchor, seedVersion:state.seedVersion};
+      const payload = {items:state.items, checks:state.checks, extras:state.extras, recipes:state.recipes, meals:state.meals, anchor:state.anchor, seedVersion:state.seedVersion, mealSeedVersion:state.mealSeedVersion};
       const json = JSON.stringify(payload);
       localStorage.setItem(KEY, json);
       if (cloudUser){
@@ -370,7 +395,9 @@ async function load(){
   if (!state.checks) state.checks = {};
   if (!state.extras) state.extras = {};
   if (!state.recipes) state.recipes = [];
+  if (!state.meals) state.meals = [];
   if (!state.seedVersion) state.seedVersion = 0;
+  if (!state.mealSeedVersion) state.mealSeedVersion = 0;
 
   const existing = new Set(state.items.map(i => i.name.trim().toLowerCase()));
   let added = false;
@@ -379,6 +406,14 @@ async function load(){
       if (!existing.has(name.trim().toLowerCase())){ addItem(name,cat,cadence); existing.add(name.trim().toLowerCase()); added = true; }
     });
     state.seedVersion = s.v;
+  });
+
+  const existingMeals = new Set(state.meals.map(m => m.name.trim().toLowerCase()));
+  MEAL_SEEDS.filter(s => s.v > state.mealSeedVersion).forEach(s => {
+    s.meals.forEach(([name, ingredients]) => {
+      if (!existingMeals.has(name.trim().toLowerCase())){ addMeal(name, ingredients); existingMeals.add(name.trim().toLowerCase()); added = true; }
+    });
+    state.mealSeedVersion = s.v;
   });
   if (added) save();
 }
@@ -404,13 +439,13 @@ function startSync(user){
   if (unsubSnapshot) unsubSnapshot();
   unsubSnapshot = onSnapshot(doc(db, "users", user.uid), snap => {
     if (!snap.exists()){
-      const payload = {items:state.items, checks:state.checks, extras:state.extras, recipes:state.recipes, anchor:state.anchor, seedVersion:state.seedVersion};
+      const payload = {items:state.items, checks:state.checks, extras:state.extras, recipes:state.recipes, meals:state.meals, anchor:state.anchor, seedVersion:state.seedVersion, mealSeedVersion:state.mealSeedVersion};
       lastCloudPayload = JSON.stringify(payload);
       setDoc(doc(db, "users", user.uid), payload).catch(e => console.error("Cloud save failed", e));
       return;
     }
     const d = snap.data();
-    const payload = {items:d.items||[], checks:d.checks||{}, extras:d.extras||{}, recipes:d.recipes||[], anchor:d.anchor||state.anchor, seedVersion:d.seedVersion||0};
+    const payload = {items:d.items||[], checks:d.checks||{}, extras:d.extras||{}, recipes:d.recipes||[], meals:d.meals||[], anchor:d.anchor||state.anchor, seedVersion:d.seedVersion||0, mealSeedVersion:d.mealSeedVersion||0};
     const json = JSON.stringify(payload);
     if (json === lastCloudPayload) return;
     lastCloudPayload = json;
@@ -612,7 +647,37 @@ const LINK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 
 function renderRecipes(){
   let h = '<h1 class="weekdate" style="margin-bottom:6px">Recipes</h1>' +
-          '<p class="hint">Paste a link and save it here \u2014 tap a card to open it.</p>';
+          '<p class="hint">Meals you cook, and links you\u2019ve saved.</p>';
+
+  h += '<h3 class="sec">Meals I cook</h3>' +
+       '<p class="hint">Ready to cook is worked out from your whole pantry list, not just what\u2019s due this week.</p>';
+
+  if (state.meals.length){
+    const pantryNames = state.items.map(i => i.name);
+    state.meals.forEach(m => {
+      const missing = m.ingredients.filter(ing => !ingredientInPantry(ing, pantryNames));
+      const ready = missing.length === 0;
+      h += '<div class="meal' + (ready ? ' ready' : '') + '">' +
+           '<div class="meal-top"><span class="meal-name">' + esc(m.name) + '</span>' +
+           '<button class="del" data-del-meal="' + m.id + '" aria-label="Remove ' + esc(m.name) + '">\u00d7</button></div>' +
+           '<div class="meal-ings">' + m.ingredients.map(ing => {
+             const has = ingredientInPantry(ing, pantryNames);
+             return '<span class="ing' + (has ? ' has' : ' miss') + '">' + esc(ing) + '</span>';
+           }).join("") + '</div>' +
+           '<p class="meal-status' + (ready ? ' ready' : '') + '">' +
+           (ready ? "You\u2019ve got everything for this." : "Missing: " + esc(missing.join(", "))) +
+           '</p></div>';
+    });
+  } else {
+    h += '<div class="empty"><p>No meals added yet.</p></div>';
+  }
+
+  h += '<div class="field" style="margin-top:14px"><input type="text" id="mname" placeholder="Meal name">' +
+       '<input type="text" id="mings" placeholder="Ingredients, comma separated">' +
+       '<button class="btn" data-add-meal>Add</button></div>';
+
+  h += '<h3 class="sec">Saved links</h3>' +
+       '<p class="hint">Paste a link and save it here \u2014 tap a card to open it.</p>';
   h += '<div class="field"><input type="text" id="rurl" placeholder="Paste a link">' +
        '<input type="text" id="rtitle" placeholder="Title (optional)">' +
        '<button class="btn" data-add-recipe>Save</button></div>';
@@ -645,6 +710,22 @@ function addItem(name, cat, cadence){
     name, cat: cat || "Other", cadence: cadence || "weekly", phase: 0, note: ""
   });
 }
+function addMeal(name, ingredients){
+  name = name.trim();
+  if (!name) return;
+  const list = (Array.isArray(ingredients) ? ingredients : String(ingredients).split(","))
+    .map(s => s.trim()).filter(Boolean);
+  state.meals.push({ id: Math.random().toString(36).slice(2,9), name, ingredients: list });
+}
+function normIng(s){ return s.trim().toLowerCase().replace(/\(.*?\)/g, "").trim(); }
+function ingredientInPantry(ing, pantryNames){
+  const a = normIng(ing);
+  if (!a) return false;
+  return pantryNames.some(p => {
+    const b = normIng(p);
+    return b && (a === b || a.includes(b) || b.includes(a));
+  });
+}
 function matchCat(s){
   if (!s) return "Other";
   const q = s.trim().toLowerCase();
@@ -662,7 +743,7 @@ function matchCad(s){
 
 /* ---------- events ---------- */
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-tab],[data-goto],[data-go],[data-toggle],[data-extra],[data-jump],[data-add],[data-bulk],[data-del],[data-reset],[data-oneoff],[data-add-recipe],[data-del-recipe]");
+  const t = e.target.closest("[data-tab],[data-goto],[data-go],[data-toggle],[data-extra],[data-jump],[data-add],[data-bulk],[data-del],[data-reset],[data-oneoff],[data-add-recipe],[data-del-recipe],[data-add-meal],[data-del-meal]");
   if (!t) return;
 
   if (t.dataset.tab){ state.tab = t.dataset.tab; return render(); }
@@ -730,6 +811,16 @@ document.addEventListener("click", e => {
     state.recipes = state.recipes.filter(r => r.id !== t.dataset.delRecipe);
     save(); return render();
   }
+  if (t.hasAttribute("data-add-meal")){
+    const nameInp = document.getElementById("mname"), ingInp = document.getElementById("mings");
+    if (!nameInp.value.trim()) return;
+    addMeal(nameInp.value, ingInp.value);
+    save(); return render();
+  }
+  if (t.dataset.delMeal){
+    state.meals = state.meals.filter(m => m.id !== t.dataset.delMeal);
+    save(); return render();
+  }
 });
 
 document.addEventListener("change", e => {
@@ -749,6 +840,7 @@ document.addEventListener("keydown", e => {
   if (e.target.id === "newname") document.querySelector("[data-add]").click();
   if (e.target.id === "oneoff") document.querySelector("[data-oneoff]").click();
   if (e.target.id === "rurl" || e.target.id === "rtitle") document.querySelector("[data-add-recipe]").click();
+  if (e.target.id === "mname" || e.target.id === "mings") document.querySelector("[data-add-meal]").click();
 });
 
 renderAccount();
