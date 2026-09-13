@@ -1,0 +1,667 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shopping rhythm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Karla:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#E9ECE2;
+    --card:#F7F8F2;
+    --ink:#1B2117;
+    --ink2:#5D6555;
+    --line:#D2D7C7;
+    --beet:#8A2846;
+    --beet-deep:#5E1A30;
+    --leaf:#4C6B36;
+    --radius:10px;
+    --radius-sm:6px;
+    --serif:"Fraunces",Georgia,"Times New Roman",serif;
+    --sans:"Karla",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:620px;margin:0 auto;padding:0 18px 80px}
+
+  /* ---- masthead ---- */
+  .masthead{
+    position:sticky;top:0;z-index:5;background:var(--paper);
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    padding:20px 0 14px;
+  }
+  .mark{font-family:var(--serif);font-size:19px;font-weight:600;letter-spacing:-.01em}
+  .mark span{color:var(--beet)}
+  .saved{font-size:13px;color:var(--ink2);opacity:0;transition:opacity .4s}
+  .saved.on{opacity:1}
+
+  /* ---- tabs ---- */
+  .tabs{
+    position:sticky;top:37px;z-index:5;background:var(--paper);
+    display:flex;gap:22px;border-bottom:1px solid var(--line);margin-bottom:26px;
+  }
+  .tab{
+    appearance:none;background:none;border:0;padding:0 0 11px;margin-bottom:-1px;
+    font-family:var(--sans);font-size:15px;color:var(--ink2);cursor:pointer;
+    border-bottom:2px solid transparent;transition:color .15s,border-color .15s;
+  }
+  .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--beet);font-weight:700}
+  .tab:hover{color:var(--ink)}
+  .tab:focus-visible{outline:2px solid var(--beet);outline-offset:3px}
+
+  /* ---- home / hero ---- */
+  .hero{padding:6px 0 30px}
+  .herotop{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+  .greet{font-size:14px;color:var(--ink2);margin:0 0 8px}
+  .herostat{font-family:var(--serif);font-size:40px;line-height:1.08;letter-spacing:-.02em;margin:0}
+  .herostat b{color:var(--beet);font-weight:600}
+  .herospan{font-size:14px;color:var(--ink2);margin:8px 0 0}
+  .heroicon{flex:none;margin-top:2px}
+  .herocta{margin-top:22px;display:inline-block}
+  .missed-box{
+    margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 16px;
+  }
+  .missed-box p{margin:0;font-size:14px}
+  .missed-box b{color:var(--beet)}
+  .upnext h3{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--ink2);margin:0 0 6px}
+
+  /* ---- week header ---- */
+  .weekbar{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:6px}
+  .weekdate{font-family:var(--serif);font-size:34px;line-height:1.08;font-weight:400;letter-spacing:-.02em;margin:0}
+  .weekdate em{font-style:normal;color:var(--ink2)}
+  .nav{display:flex;gap:6px;flex:none;padding-top:6px}
+  .nav button{
+    width:36px;height:36px;border:1px solid var(--line);background:var(--card);border-radius:var(--radius-sm);
+    color:var(--ink);cursor:pointer;font-size:15px;line-height:1;display:grid;place-items:center;
+    transition:border-color .15s,transform .1s;
+  }
+  .nav button:hover{border-color:var(--ink2)}
+  .nav button:active{transform:scale(.94)}
+  .nav button:focus-visible{outline:2px solid var(--beet);outline-offset:2px}
+  .status{color:var(--ink2);font-size:14px;margin:0 0 4px}
+  .today{display:inline-block;margin-bottom:22px;font-size:14px;color:var(--beet);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
+  /* ---- aisle groups ---- */
+  .aisle{margin-bottom:26px}
+  .aisle h2{
+    font-family:var(--sans);font-size:13px;font-weight:700;color:var(--ink2);
+    margin:0 0 8px;display:flex;align-items:center;gap:10px;
+  }
+  .aisle h2::after{content:"";flex:1;height:1px;background:var(--line)}
+  .row{
+    display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 14px;margin-bottom:6px;cursor:pointer;font:inherit;color:inherit;
+    transition:background .15s,border-color .15s,opacity .15s;
+  }
+  .row:hover{border-color:var(--ink2)}
+  .row:focus-visible{outline:2px solid var(--beet);outline-offset:2px}
+  .box{
+    width:20px;height:20px;flex:none;border:1.5px solid var(--ink2);border-radius:5px;
+    display:grid;place-items:center;background:#fff;
+    transition:background .15s,border-color .15s,transform .15s;
+  }
+  .box svg{opacity:0;width:12px;height:12px;transform:scale(.5);transition:opacity .15s,transform .15s}
+  .row.got{background:transparent;border-color:transparent}
+  .row.got .name{color:var(--ink2);text-decoration:line-through;text-decoration-thickness:1px}
+  .row.got .box{background:var(--leaf);border-color:var(--leaf);transform:scale(1.06)}
+  .row.got .box svg{opacity:1;transform:scale(1)}
+  .name{flex:1;min-width:0}
+  .meta{font-size:13px;color:var(--ink2);flex:none}
+  .missed{color:var(--beet)}
+
+  /* ---- extras ---- */
+  details{border-top:1px solid var(--line);padding-top:16px;margin-top:6px}
+  summary{cursor:pointer;font-size:14px;color:var(--ink2);list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"+ ";color:var(--beet)}
+  details[open] summary::before{content:"– "}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .chip{
+    border:1px solid var(--line);background:var(--card);border-radius:100px;padding:6px 13px;
+    font:inherit;font-size:14px;color:var(--ink);cursor:pointer;transition:border-color .15s,color .15s;
+  }
+  .chip:hover{border-color:var(--beet);color:var(--beet)}
+
+  /* ---- month ---- */
+  .mrow{
+    display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;
+    background:none;border:0;border-bottom:1px solid var(--line);padding:15px 0;
+    transition:opacity .15s;
+  }
+  .mrow:hover{opacity:.72}
+  .mrow:focus-visible{outline:2px solid var(--beet);outline-offset:2px}
+  .mtop{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .mlabel{font-family:var(--serif);font-size:19px}
+  .mrow.now .mlabel::after{content:" · this week";font-family:var(--sans);font-size:13px;color:var(--beet)}
+  .mcount{font-size:14px;color:var(--ink2);flex:none}
+  .bar{height:7px;background:var(--line);border-radius:100px;margin-top:10px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--beet);border-radius:100px}
+  .bar i.done{background:var(--leaf)}
+
+  /* ---- list manager ---- */
+  .field{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  input[type=text],select,textarea{
+    font:inherit;color:var(--ink);background:var(--card);
+    border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;
+    transition:border-color .15s;
+  }
+  input[type=text]{flex:1;min-width:150px}
+  textarea{width:100%;min-height:110px;resize:vertical;line-height:1.5}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--beet);outline-offset:1px;border-color:var(--beet)}
+  .btn{
+    font:inherit;font-weight:700;background:var(--beet);color:#fff;border:1px solid var(--beet);
+    border-radius:var(--radius-sm);padding:10px 17px;cursor:pointer;transition:background .15s,transform .1s;
+  }
+  .btn:hover{background:var(--beet-deep);border-color:var(--beet-deep)}
+  .btn:active{transform:scale(.98)}
+  .btn.ghost{background:none;color:var(--ink);border-color:var(--line);font-weight:400}
+  .btn.ghost:hover{border-color:var(--ink2);background:none}
+  .btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .hint{font-size:13px;color:var(--ink2);margin:0 0 18px}
+  .item{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .item .iname{flex:1;min-width:120px}
+  .item select{padding:7px 9px;font-size:14px}
+  .del{border:0;background:none;color:var(--ink2);cursor:pointer;font-size:18px;line-height:1;padding:4px 6px;border-radius:4px;transition:color .15s}
+  .del:hover{color:var(--beet)}
+  h3.sec{font-family:var(--serif);font-size:21px;font-weight:400;margin:30px 0 10px}
+  .empty{border:1px dashed var(--line);border-radius:var(--radius);padding:28px 20px;text-align:center}
+  .empty p{margin:0 0 14px;color:var(--ink2)}
+
+  /* ---- recipes ---- */
+  .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:22px}
+  .rcard{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .rlink{display:block;color:inherit;text-decoration:none}
+  .rthumb{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;background:var(--line)}
+  .rthumb-fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--ink2)}
+  .rthumb-fallback svg{width:26px;height:26px}
+  .rhost{font-size:12px}
+  .rtitle{display:block;font-size:14px;padding:10px 12px 12px;line-height:1.35}
+  .rdel{
+    position:absolute;top:7px;right:7px;width:26px;height:26px;border-radius:50%;
+    border:0;background:rgba(27,33,23,.55);color:#fff;cursor:pointer;font-size:16px;line-height:1;
+    display:grid;place-items:center;transition:background .15s;
+  }
+  .rdel:hover{background:var(--beet)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="masthead">
+    <div class="mark">Shopping <span>rhythm</span></div>
+    <div class="saved" id="saved">Saved</div>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="home">Home</button>
+    <button class="tab" role="tab" data-tab="week">This week</button>
+    <button class="tab" role="tab" data-tab="month">The month</button>
+    <button class="tab" role="tab" data-tab="list">My list</button>
+    <button class="tab" role="tab" data-tab="recipes">Recipes</button>
+  </div>
+  <main id="view"></main>
+</div>
+
+<script>
+const AISLES = ["Produce","Bakery","Dairy & eggs","Chilled & deli","Meat & fish","Dry & tinned","Frozen","Drinks","Household","Other"];
+const CADENCE = {
+  weekly:      {label:"every week",      every:1},
+  fortnightly: {label:"every 2 weeks",   every:2},
+  monthly:     {label:"every 4 weeks",   every:4},
+  sometimes:   {label:"now and then",    every:0}
+};
+const KEY = "shopping-rhythm-v1";
+const DAY = 86400000;
+const TICK = '<svg viewBox="0 0 12 12" fill="none"><path d="M2 6.4 4.6 9 10 3.2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const BASKET = '<svg viewBox="0 0 96 80" width="68" height="57" fill="none" aria-hidden="true">' +
+  '<path d="M14 34h68l-7 38a6 6 0 0 1-6 5H27a6 6 0 0 1-6-5L14 34Z" stroke="var(--ink)" stroke-width="2.4" stroke-linejoin="round"/>' +
+  '<path d="M14 34 24 12M82 34 72 12" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round"/>' +
+  '<path d="M8 34h80" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round"/>' +
+  '<circle cx="40" cy="29" r="7.5" fill="var(--beet)"/>' +
+  '<path d="M57 29c0-7.5 5-12 12-12-1 7.5-4.5 12-12 12Z" fill="var(--leaf)"/>' +
+  '</svg>';
+
+/* Seeds are added incrementally by version, so re-adding this file later
+   only tops up new items rather than duplicating what's already there. */
+const SEEDS = [
+  { v:1, items:[
+    ["Chicken breast","Meat & fish","weekly"],
+    ["Chicken thighs","Meat & fish","weekly"],
+    ["Minced beef","Meat & fish","weekly"],
+    ["Fish","Meat & fish","weekly"],
+    ["Tuna (tinned)","Dry & tinned","fortnightly"],
+    ["Eggs","Dairy & eggs","weekly"],
+    ["Cheese","Dairy & eggs","weekly"],
+    ["Hummus","Chilled & deli","weekly"],
+    ["Onions","Produce","weekly"],
+    ["Tomatoes","Produce","weekly"],
+    ["Pasta","Dry & tinned","fortnightly"],
+    ["Rice","Dry & tinned","monthly"],
+    ["Lentils","Dry & tinned","monthly"],
+    ["Raisins / sultanas","Dry & tinned","monthly"]
+  ]},
+  { v:2, items:[
+    ["Frozen vegetables","Frozen","fortnightly"],
+    ["Bread","Bakery","weekly"],
+    ["Milk","Dairy & eggs","weekly"],
+    ["Oil","Dry & tinned","monthly"],
+    ["Sugar","Dry & tinned","monthly"]
+  ]}
+];
+
+let state = {items:[], checks:{}, extras:{}, recipes:[], anchor:null, tab:"home", offset:0, seedVersion:0};
+
+/* ---------- dates ---------- */
+function monday(d){
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+function iso(d){
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function fromIso(s){ const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); }
+function nowMonday(){ return monday(new Date()); }
+function shownWeek(){ const m = nowMonday(); m.setDate(m.getDate() + state.offset*7); return m; }
+function weekIndex(m){ return Math.round((m - fromIso(state.anchor)) / (7*DAY)); }
+function span(m){
+  const end = new Date(m.getTime() + 6*DAY);
+  const a = {day:"numeric", month:"long"}, b = {day:"numeric", month:"long"};
+  if (m.getMonth() === end.getMonth())
+    return m.getDate() + "–" + end.toLocaleDateString("en-GB", b);
+  return m.toLocaleDateString("en-GB",a) + " – " + end.toLocaleDateString("en-GB", b);
+}
+function greeting(){
+  const h = new Date().getHours();
+  if (h < 5) return "Still up.";
+  if (h < 12) return "Morning.";
+  if (h < 17) return "Afternoon.";
+  if (h < 21) return "Evening.";
+  return "Winding down.";
+}
+
+/* ---------- scheduling ---------- */
+function isDue(item, wi){
+  const every = CADENCE[item.cadence].every;
+  if (!every) return false;
+  return (((wi % every) + every) % every) === (item.phase % every);
+}
+function dueIn(m){
+  const wi = weekIndex(m), key = iso(m), extra = state.extras[key] || [];
+  return state.items.filter(it => isDue(it, wi) || extra.includes(it.id));
+}
+function gotIn(key){ return state.checks[key] || []; }
+function missedLastWeek(item, m){
+  const prev = new Date(m.getTime() - 7*DAY);
+  if (!isDue(item, weekIndex(prev))) return false;
+  return !gotIn(iso(prev)).includes(item.id);
+}
+
+/* ---------- storage ----------
+   Plain localStorage, so this keeps working once the file is hosted on its
+   own URL (e.g. GitHub Pages) rather than previewed inside Claude. */
+let saveTimer;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try{
+      localStorage.setItem(KEY, JSON.stringify({items:state.items, checks:state.checks, extras:state.extras, recipes:state.recipes, anchor:state.anchor, seedVersion:state.seedVersion}));
+      const el = document.getElementById("saved");
+      el.classList.add("on");
+      setTimeout(() => el.classList.remove("on"), 1400);
+    }catch(e){ console.error("Could not save", e); }
+  }, 350);
+}
+async function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if (raw) Object.assign(state, JSON.parse(raw));
+  }catch(e){ /* nothing stored yet */ }
+  if (!state.anchor) state.anchor = iso(nowMonday());
+  if (!state.items) state.items = [];
+  if (!state.checks) state.checks = {};
+  if (!state.extras) state.extras = {};
+  if (!state.recipes) state.recipes = [];
+  if (!state.seedVersion) state.seedVersion = 0;
+
+  const existing = new Set(state.items.map(i => i.name.trim().toLowerCase()));
+  let added = false;
+  SEEDS.filter(s => s.v > state.seedVersion).forEach(s => {
+    s.items.forEach(([name,cat,cadence]) => {
+      if (!existing.has(name.trim().toLowerCase())){ addItem(name,cat,cadence); existing.add(name.trim().toLowerCase()); added = true; }
+    });
+    state.seedVersion = s.v;
+  });
+  if (added) save();
+}
+
+/* ---------- render ---------- */
+const view = document.getElementById("view");
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function render(){
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.tab === state.tab));
+  if (state.tab === "home") renderHome();
+  else if (state.tab === "week") renderWeek();
+  else if (state.tab === "month") renderMonth();
+  else if (state.tab === "list") renderList();
+  else renderRecipes();
+}
+
+function renderHome(){
+  if (!state.items.length){
+    let h = '<div class="hero"><p class="greet">' + greeting() + '</p>' +
+            '<h1 class="herostat">Nothing to<br>track yet.</h1>' +
+            '<p class="herospan">Add what you usually buy and this page fills itself in.</p>' +
+            '<button class="btn herocta" data-goto="list">Build my list</button></div>';
+    view.innerHTML = h; return;
+  }
+
+  const nm = nowMonday(), key = iso(nm);
+  const due = dueIn(nm), got = gotIn(key);
+  const remaining = due.filter(i => !got.includes(i.id));
+  const missed = due.filter(i => !got.includes(i.id) && missedLastWeek(i, nm))
+                 .concat(state.items.filter(i => !due.includes(i) && missedLastWeek(i, nm)));
+
+  let h = '<div class="hero"><div class="herotop"><div>' +
+          '<p class="greet">' + greeting() + '</p>';
+
+  if (due.length === 0){
+    h += '<h1 class="herostat">No shop<br>due this week.</h1>';
+  } else if (remaining.length === 0){
+    h += '<h1 class="herostat">All sorted<br>for this week.</h1>';
+  } else {
+    h += '<h1 class="herostat"><b>' + remaining.length + '</b> thing' + (remaining.length === 1 ? '' : 's') + '<br>left to pick up.</h1>';
+  }
+  h += '<p class="herospan">' + span(nm) + '</p></div><div class="heroicon">' + BASKET + '</div></div>';
+  h += '<button class="btn herocta" data-goto="week">Open this week\u2019s shop</button>';
+
+  if (missed.length){
+    const names = missed.slice(0,3).map(i => i.name);
+    let text = names.length === 1 ? names[0] : names.slice(0,-1).join(", ") + " and " + names[names.length-1];
+    if (missed.length > 3) text += ", and " + (missed.length - 3) + " more";
+    h += '<div class="missed-box"><p>You skipped <b>' + esc(text) + '</b> last time \u2014 want to add them back in?</p></div>';
+  }
+  h += '</div>';
+
+  h += '<div class="upnext"><h3>Coming up</h3>';
+  for (let k = 1; k <= 2; k++){
+    const m = new Date(nm.getTime() + k*7*DAY);
+    const d = dueIn(m), g = gotIn(iso(m)).filter(id => d.some(i => i.id === id));
+    h += '<button class="mrow" data-jump="' + k + '"><span class="mtop">' +
+         '<span class="mlabel">' + span(m) + '</span>' +
+         '<span class="mcount">' + (d.length ? d.length + ' items' : 'nothing due') + '</span></span></button>';
+  }
+  h += '</div>';
+  view.innerHTML = h;
+}
+
+function renderWeek(){
+  const m = shownWeek(), key = iso(m), due = dueIn(m), got = gotIn(key);
+  let h = '<div class="weekbar"><h1 class="weekdate">' + span(m) + '</h1>' +
+          '<div class="nav"><button data-go="-1" aria-label="Previous week">‹</button>' +
+          '<button data-go="1" aria-label="Next week">›</button></div></div>';
+
+  if (!state.items.length){
+    h += '<div class="empty" style="margin-top:20px"><p>Nothing in your pantry yet. Add the things you buy regularly and each week will fill itself in.</p>' +
+         '<button class="btn" data-goto="list">Build my list</button></div>';
+    view.innerHTML = h; return;
+  }
+
+  const n = due.length, bought = due.filter(i => got.includes(i.id)).length;
+  h += '<p class="status">' + (n === 0
+        ? "No regular shop this week."
+        : (bought === n ? "All " + n + " in the basket." : bought + " of " + n + " in the basket."));
+  h += '</p>';
+  if (state.offset !== 0) h += '<button class="today" data-go="0">Back to this week</button>';
+  else h += '<div style="height:16px"></div>';
+
+  AISLES.forEach(a => {
+    const rows = due.filter(i => i.cat === a);
+    if (!rows.length) return;
+    h += '<section class="aisle"><h2>' + a + '</h2>';
+    rows.forEach(i => {
+      const on = got.includes(i.id);
+      const note = !on && missedLastWeek(i, m)
+        ? '<span class="meta missed">missed last week</span>'
+        : '<span class="meta">' + (i.note ? esc(i.note) : CADENCE[i.cadence].label) + '</span>';
+      h += '<button class="row' + (on ? ' got' : '') + '" data-toggle="' + i.id + '">' +
+           '<span class="box">' + TICK + '</span><span class="name">' + esc(i.name) + '</span>' + note + '</button>';
+    });
+    h += '</section>';
+  });
+
+  const rest = state.items.filter(i => !due.includes(i));
+  h += '<details><summary>Add something else to this week</summary>';
+  h += '<div class="field" style="margin-top:14px"><input type="text" id="oneoff" placeholder="Something new, e.g. baking paper">' +
+       '<button class="btn" data-oneoff>Add</button></div>';
+  if (rest.length){
+    h += '<div class="chips">' + rest.map(i => '<button class="chip" data-extra="' + i.id + '">' + esc(i.name) + '</button>').join("") + '</div>';
+  }
+  h += '</details>';
+  view.innerHTML = h;
+}
+
+function renderMonth(){
+  const base = shownWeek();
+  const weeks = [];
+  for (let k = -1; k < 5; k++){
+    const m = new Date(base.getTime() + k*7*DAY);
+    const due = dueIn(m), got = gotIn(iso(m)).filter(id => due.some(i => i.id === id));
+    weeks.push({m, n:due.length, got:got.length, off:state.offset + k});
+  }
+  const max = Math.max(1, ...weeks.map(w => w.n));
+  let h = '<div class="weekbar"><h1 class="weekdate">' + base.toLocaleDateString("en-GB",{month:"long"}) +
+          ' <em>' + base.getFullYear() + '</em></h1>' +
+          '<div class="nav"><button data-go="-4" aria-label="Earlier">‹</button>' +
+          '<button data-go="4" aria-label="Later">›</button></div></div>';
+  h += '<p class="status">How heavy each shop looks. Spread the big ones out by changing an item\u2019s week in your list.</p><div style="height:12px"></div>';
+  weeks.forEach(w => {
+    const pct = Math.round(w.n / max * 100);
+    const donePct = w.n ? Math.round(w.got / w.n * 100) : 0;
+    h += '<button class="mrow' + (w.off === 0 ? ' now' : '') + '" data-jump="' + w.off + '">' +
+         '<span class="mtop"><span class="mlabel">' + span(w.m) + '</span>' +
+         '<span class="mcount">' + (w.n ? w.got + ' of ' + w.n : 'nothing due') + '</span></span>' +
+         '<span class="bar"><i style="width:' + pct + '%"><i class="done" style="width:' + donePct + '%"></i></i></span></button>';
+  });
+  view.innerHTML = h;
+}
+
+function renderList(){
+  let h = '<h1 class="weekdate" style="margin-bottom:6px">My list</h1>' +
+          '<p class="hint">Give each thing a rhythm and it will show up on the right weeks by itself.</p>';
+  h += '<div class="field"><input type="text" id="newname" placeholder="Add an item">' +
+       '<select id="newcat">' + AISLES.map(a => '<option>' + a + '</option>').join("") + '</select>' +
+       '<select id="newcad">' + Object.keys(CADENCE).map(c => '<option value="' + c + '">' + CADENCE[c].label + '</option>').join("") + '</select>' +
+       '<button class="btn" data-add>Add</button></div>';
+
+  h += '<h3 class="sec">Paste a whole list</h3>' +
+       '<p class="hint">One item per line. Add a category and rhythm after a vertical bar if you want: <em>Milk | Dairy | weekly</em></p>' +
+       '<textarea id="bulk" placeholder="Tomatoes&#10;Milk | Dairy | weekly&#10;Washing up liquid | Household | monthly"></textarea>' +
+       '<div class="field" style="margin-top:10px"><button class="btn" data-bulk>Add these</button></div>';
+
+  if (state.items.length){
+    h += '<h3 class="sec">' + state.items.length + ' things you buy</h3>';
+    AISLES.forEach(a => {
+      const rows = state.items.filter(i => i.cat === a);
+      if (!rows.length) return;
+      h += '<section class="aisle" style="margin-bottom:18px"><h2>' + a + '</h2>';
+      rows.forEach(i => {
+        h += '<div class="item"><span class="iname">' + esc(i.name) + '</span>' +
+             '<select data-cat="' + i.id + '">' + AISLES.map(c => '<option' + (c === i.cat ? ' selected' : '') + '>' + c + '</option>').join("") + '</select>' +
+             '<select data-cad="' + i.id + '">' + Object.keys(CADENCE).map(c => '<option value="' + c + '"' + (c === i.cadence ? ' selected' : '') + '>' + CADENCE[c].label + '</option>').join("") + '</select>';
+        const every = CADENCE[i.cadence].every;
+        if (every > 1){
+          h += '<select data-phase="' + i.id + '">';
+          for (let p = 0; p < every; p++) h += '<option value="' + p + '"' + (p === i.phase ? ' selected' : '') + '>week ' + (p+1) + '</option>';
+          h += '</select>';
+        }
+        h += '<button class="del" data-del="' + i.id + '" aria-label="Remove ' + esc(i.name) + '">×</button></div>';
+      });
+      h += '</section>';
+    });
+    h += '<div class="field" style="margin-top:24px"><button class="btn ghost" data-reset>Clear everything</button></div>';
+  }
+  view.innerHTML = h;
+}
+
+function ytId(url){
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
+  return m ? m[1] : null;
+}
+function hostOf(url){
+  try{ return new URL(url).hostname.replace(/^www\./,""); }
+  catch(e){ return url.replace(/^https?:\/\//,"").split("/")[0]; }
+}
+const LINK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9.5 14.5 14.5 9.5M8 16l-2.5 2.5a3 3 0 0 1-4.24-4.24L4 11.5M16 8l2.5-2.5a3 3 0 0 1 4.24 4.24L20.5 12" stroke-linecap="round"/></svg>';
+
+function renderRecipes(){
+  let h = '<h1 class="weekdate" style="margin-bottom:6px">Recipes</h1>' +
+          '<p class="hint">Paste a link and save it here \u2014 tap a card to open it.</p>';
+  h += '<div class="field"><input type="text" id="rurl" placeholder="Paste a link">' +
+       '<input type="text" id="rtitle" placeholder="Title (optional)">' +
+       '<button class="btn" data-add-recipe>Save</button></div>';
+
+  if (!state.recipes.length){
+    h += '<div class="empty" style="margin-top:20px"><p>No recipes saved yet.</p></div>';
+    view.innerHTML = h; return;
+  }
+
+  h += '<div class="rgrid">';
+  state.recipes.slice().reverse().forEach(r => {
+    const id = ytId(r.url), host = hostOf(r.url);
+    const thumb = id
+      ? '<img class="rthumb" src="https://img.youtube.com/vi/' + id + '/hqdefault.jpg" alt="" loading="lazy">'
+      : '<div class="rthumb rthumb-fallback">' + LINK_ICON + '<span class="rhost">' + esc(host) + '</span></div>';
+    h += '<div class="rcard"><a class="rlink" href="' + esc(r.url) + '" target="_blank" rel="noopener">' +
+         thumb + '<span class="rtitle">' + esc(r.title) + '</span></a>' +
+         '<button class="rdel" data-del-recipe="' + r.id + '" aria-label="Remove ' + esc(r.title) + '">×</button></div>';
+  });
+  h += '</div>';
+  view.innerHTML = h;
+}
+
+/* ---------- editing ---------- */
+function addItem(name, cat, cadence){
+  name = name.trim();
+  if (!name) return;
+  state.items.push({
+    id: Math.random().toString(36).slice(2,9),
+    name, cat: cat || "Other", cadence: cadence || "weekly", phase: 0, note: ""
+  });
+}
+function matchCat(s){
+  if (!s) return "Other";
+  const q = s.trim().toLowerCase();
+  return AISLES.find(a => a.toLowerCase().startsWith(q) || a.toLowerCase().includes(q)) || "Other";
+}
+function matchCad(s){
+  if (!s) return "weekly";
+  const q = s.trim().toLowerCase();
+  if (q.startsWith("w")) return "weekly";
+  if (q.startsWith("f") || q.includes("2") || q.startsWith("bi")) return "fortnightly";
+  if (q.startsWith("m") || q.includes("4")) return "monthly";
+  if (q.startsWith("s") || q.startsWith("o") || q.startsWith("n")) return "sometimes";
+  return "weekly";
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-tab],[data-goto],[data-go],[data-toggle],[data-extra],[data-jump],[data-add],[data-bulk],[data-del],[data-reset],[data-oneoff],[data-add-recipe],[data-del-recipe]");
+  if (!t) return;
+
+  if (t.dataset.tab){ state.tab = t.dataset.tab; return render(); }
+  if (t.dataset.goto){ state.tab = t.dataset.goto; return render(); }
+
+  if (t.dataset.go !== undefined){
+    const g = Number(t.dataset.go);
+    state.offset = g === 0 ? 0 : state.offset + g;
+    return render();
+  }
+  if (t.dataset.jump !== undefined){
+    state.offset = Number(t.dataset.jump); state.tab = "week"; return render();
+  }
+  if (t.dataset.toggle){
+    const key = iso(shownWeek()), id = t.dataset.toggle;
+    const list = state.checks[key] || (state.checks[key] = []);
+    const at = list.indexOf(id);
+    at === -1 ? list.push(id) : list.splice(at,1);
+    save(); return render();
+  }
+  if (t.dataset.extra){
+    const key = iso(shownWeek());
+    (state.extras[key] || (state.extras[key] = [])).push(t.dataset.extra);
+    save(); return render();
+  }
+  if (t.hasAttribute("data-oneoff")){
+    const inp = document.getElementById("oneoff");
+    if (!inp.value.trim()) return;
+    addItem(inp.value, "Other", "sometimes");
+    const key = iso(shownWeek());
+    (state.extras[key] || (state.extras[key] = [])).push(state.items[state.items.length-1].id);
+    save(); return render();
+  }
+  if (t.hasAttribute("data-add")){
+    addItem(document.getElementById("newname").value, document.getElementById("newcat").value, document.getElementById("newcad").value);
+    save(); return render();
+  }
+  if (t.hasAttribute("data-bulk")){
+    const lines = document.getElementById("bulk").value.split("\n");
+    lines.forEach(l => {
+      if (!l.trim()) return;
+      const p = l.split("|");
+      addItem(p[0], matchCat(p[1]), matchCad(p[2]));
+    });
+    save(); return render();
+  }
+  if (t.dataset.del){
+    state.items = state.items.filter(i => i.id !== t.dataset.del);
+    save(); return render();
+  }
+  if (t.hasAttribute("data-reset")){
+    if (!confirm("Remove every item and all the weeks you have ticked off?")) return;
+    state.items = []; state.checks = {}; state.extras = {};
+    save(); return render();
+  }
+  if (t.hasAttribute("data-add-recipe")){
+    const urlInp = document.getElementById("rurl"), titleInp = document.getElementById("rtitle");
+    const url = urlInp.value.trim();
+    if (!url) return;
+    const title = titleInp.value.trim() || (ytId(url) ? "YouTube video" : hostOf(url));
+    state.recipes.push({id: Math.random().toString(36).slice(2,9), url, title});
+    save(); return render();
+  }
+  if (t.dataset.delRecipe){
+    state.recipes = state.recipes.filter(r => r.id !== t.dataset.delRecipe);
+    save(); return render();
+  }
+});
+
+document.addEventListener("change", e => {
+  const el = e.target;
+  const id = el.dataset.cat || el.dataset.cad || el.dataset.phase;
+  if (!id) return;
+  const it = state.items.find(i => i.id === id);
+  if (!it) return;
+  if (el.dataset.cat) it.cat = el.value;
+  if (el.dataset.cad){ it.cadence = el.value; it.phase = 0; }
+  if (el.dataset.phase) it.phase = Number(el.value);
+  save(); render();
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  if (e.target.id === "newname") document.querySelector("[data-add]").click();
+  if (e.target.id === "oneoff") document.querySelector("[data-oneoff]").click();
+  if (e.target.id === "rurl" || e.target.id === "rtitle") document.querySelector("[data-add-recipe]").click();
+});
+
+load().then(render);
+</script>
