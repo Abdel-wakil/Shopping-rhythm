@@ -76,13 +76,6 @@
   .herospan{font-size:14px;color:var(--ink2);margin:8px 0 0}
   .heroicon{flex:none;margin-top:2px}
   .herocta{margin-top:22px;display:inline-block}
-  .missed-box{
-    margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-    padding:14px 16px;
-  }
-  .missed-box p{margin:0;font-size:14px}
-  .missed-box b{color:var(--beet)}
-  .upnext h3{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--ink2);margin:0 0 6px}
 
   /* ---- week header ---- */
   .weekbar{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:6px}
@@ -126,21 +119,13 @@
   .row.got .box{background:var(--leaf);border-color:var(--leaf);transform:scale(1.06)}
   .row.got .box svg{opacity:1;transform:scale(1)}
   .name{flex:1;min-width:0}
-  .meta{font-size:13px;color:var(--ink2);flex:none}
-  .missed{color:var(--beet)}
 
-  /* ---- extras ---- */
+  /* ---- add-new ---- */
   details{border-top:1px solid var(--line);padding-top:16px;margin-top:6px}
   summary{cursor:pointer;font-size:14px;color:var(--ink2);list-style:none}
   summary::-webkit-details-marker{display:none}
   summary::before{content:"+ ";color:var(--beet)}
   details[open] summary::before{content:"– "}
-  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
-  .chip{
-    border:1px solid var(--line);background:var(--card);border-radius:100px;padding:6px 13px;
-    font:inherit;font-size:14px;color:var(--ink);cursor:pointer;transition:border-color .15s,color .15s;
-  }
-  .chip:hover{border-color:var(--beet);color:var(--beet)}
 
   /* ---- month ---- */
   .mrow{
@@ -258,12 +243,6 @@ const provider = new GoogleAuthProvider();
 let cloudUser = null, unsubSnapshot = null, lastCloudPayload = null;
 
 const AISLES = ["Produce","Bakery","Dairy & eggs","Chilled & deli","Meat & fish","Dry & tinned","Frozen","Drinks","Household","Other"];
-const CADENCE = {
-  weekly:      {label:"every week",      every:1},
-  fortnightly: {label:"every 2 weeks",   every:2},
-  monthly:     {label:"every 4 weeks",   every:4},
-  sometimes:   {label:"now and then",    every:0}
-};
 const KEY = "shopping-rhythm-v1";
 const DAY = 86400000;
 const TICK = '<svg viewBox="0 0 12 12" fill="none"><path d="M2 6.4 4.6 9 10 3.2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -316,7 +295,7 @@ const MEAL_SEEDS = [
   ]}
 ];
 
-let state = {items:[], checks:{}, extras:{}, recipes:[], meals:[], anchor:null, tab:"home", offset:0, seedVersion:0, mealSeedVersion:0};
+let state = {items:[], checks:{}, recipes:[], meals:[], tab:"home", offset:0, seedVersion:0, mealSeedVersion:0};
 
 /* ---------- dates ---------- */
 function monday(d){
@@ -327,10 +306,8 @@ function monday(d){
 function iso(d){
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
-function fromIso(s){ const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); }
 function nowMonday(){ return monday(new Date()); }
 function shownWeek(){ const m = nowMonday(); m.setDate(m.getDate() + state.offset*7); return m; }
-function weekIndex(m){ return Math.round((m - fromIso(state.anchor)) / (7*DAY)); }
 function span(m){
   const end = new Date(m.getTime() + 6*DAY);
   const a = {day:"numeric", month:"long"}, b = {day:"numeric", month:"long"};
@@ -347,22 +324,10 @@ function greeting(){
   return "Winding down.";
 }
 
-/* ---------- scheduling ---------- */
-function isDue(item, wi){
-  const every = CADENCE[item.cadence].every;
-  if (!every) return false;
-  return (((wi % every) + every) % every) === (item.phase % every);
-}
-function dueIn(m){
-  const wi = weekIndex(m), key = iso(m), extra = state.extras[key] || [];
-  return state.items.filter(it => isDue(it, wi) || extra.includes(it.id));
-}
+/* ---------- scheduling ----------
+   Every item shows up every week; you tick off what you're buying yourself. */
+function dueIn(){ return state.items; }
 function gotIn(key){ return state.checks[key] || []; }
-function missedLastWeek(item, m){
-  const prev = new Date(m.getTime() - 7*DAY);
-  if (!isDue(item, weekIndex(prev))) return false;
-  return !gotIn(iso(prev)).includes(item.id);
-}
 
 /* ---------- storage ----------
    Plain localStorage, so this keeps working once the file is hosted on its
@@ -372,7 +337,7 @@ function save(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try{
-      const payload = {items:state.items, checks:state.checks, extras:state.extras, recipes:state.recipes, meals:state.meals, anchor:state.anchor, seedVersion:state.seedVersion, mealSeedVersion:state.mealSeedVersion};
+      const payload = {items:state.items, checks:state.checks, recipes:state.recipes, meals:state.meals, seedVersion:state.seedVersion, mealSeedVersion:state.mealSeedVersion};
       const json = JSON.stringify(payload);
       localStorage.setItem(KEY, json);
       if (cloudUser){
@@ -390,10 +355,8 @@ async function load(){
     const raw = localStorage.getItem(KEY);
     if (raw) Object.assign(state, JSON.parse(raw));
   }catch(e){ /* nothing stored yet */ }
-  if (!state.anchor) state.anchor = iso(nowMonday());
   if (!state.items) state.items = [];
   if (!state.checks) state.checks = {};
-  if (!state.extras) state.extras = {};
   if (!state.recipes) state.recipes = [];
   if (!state.meals) state.meals = [];
   if (!state.seedVersion) state.seedVersion = 0;
@@ -402,8 +365,8 @@ async function load(){
   const existing = new Set(state.items.map(i => i.name.trim().toLowerCase()));
   let added = false;
   SEEDS.filter(s => s.v > state.seedVersion).forEach(s => {
-    s.items.forEach(([name,cat,cadence]) => {
-      if (!existing.has(name.trim().toLowerCase())){ addItem(name,cat,cadence); existing.add(name.trim().toLowerCase()); added = true; }
+    s.items.forEach(([name,cat]) => {
+      if (!existing.has(name.trim().toLowerCase())){ addItem(name,cat); existing.add(name.trim().toLowerCase()); added = true; }
     });
     state.seedVersion = s.v;
   });
@@ -439,13 +402,13 @@ function startSync(user){
   if (unsubSnapshot) unsubSnapshot();
   unsubSnapshot = onSnapshot(doc(db, "users", user.uid), snap => {
     if (!snap.exists()){
-      const payload = {items:state.items, checks:state.checks, extras:state.extras, recipes:state.recipes, meals:state.meals, anchor:state.anchor, seedVersion:state.seedVersion, mealSeedVersion:state.mealSeedVersion};
+      const payload = {items:state.items, checks:state.checks, recipes:state.recipes, meals:state.meals, seedVersion:state.seedVersion, mealSeedVersion:state.mealSeedVersion};
       lastCloudPayload = JSON.stringify(payload);
       setDoc(doc(db, "users", user.uid), payload).catch(e => console.error("Cloud save failed", e));
       return;
     }
     const d = snap.data();
-    const payload = {items:d.items||[], checks:d.checks||{}, extras:d.extras||{}, recipes:d.recipes||[], meals:d.meals||[], anchor:d.anchor||state.anchor, seedVersion:d.seedVersion||0, mealSeedVersion:d.mealSeedVersion||0};
+    const payload = {items:d.items||[], checks:d.checks||{}, recipes:d.recipes||[], meals:d.meals||[], seedVersion:d.seedVersion||0, mealSeedVersion:d.mealSeedVersion||0};
     const json = JSON.stringify(payload);
     if (json === lastCloudPayload) return;
     lastCloudPayload = json;
@@ -488,46 +451,23 @@ function renderHome(){
   }
 
   const nm = nowMonday(), key = iso(nm);
-  const due = dueIn(nm), got = gotIn(key);
+  const due = dueIn(), got = gotIn(key);
   const remaining = due.filter(i => !got.includes(i.id));
-  const missed = due.filter(i => !got.includes(i.id) && missedLastWeek(i, nm))
-                 .concat(state.items.filter(i => !due.includes(i) && missedLastWeek(i, nm)));
 
   let h = '<div class="hero"><div class="herotop"><div>' +
           '<p class="greet">' + greeting() + '</p>';
 
-  if (due.length === 0){
-    h += '<h1 class="herostat">No shop<br>due this week.</h1>';
-  } else if (remaining.length === 0){
-    h += '<h1 class="herostat">All sorted<br>for this week.</h1>';
-  } else {
-    h += '<h1 class="herostat"><b>' + remaining.length + '</b> thing' + (remaining.length === 1 ? '' : 's') + '<br>left to pick up.</h1>';
-  }
+  h += remaining.length === 0
+    ? '<h1 class="herostat">All sorted<br>for this week.</h1>'
+    : '<h1 class="herostat"><b>' + remaining.length + '</b> thing' + (remaining.length === 1 ? '' : 's') + '<br>left to pick up.</h1>';
   h += '<p class="herospan">' + span(nm) + '</p></div><div class="heroicon">' + BASKET + '</div></div>';
   h += '<button class="btn herocta" data-goto="week">Open this week\u2019s shop</button>';
-
-  if (missed.length){
-    const names = missed.slice(0,3).map(i => i.name);
-    let text = names.length === 1 ? names[0] : names.slice(0,-1).join(", ") + " and " + names[names.length-1];
-    if (missed.length > 3) text += ", and " + (missed.length - 3) + " more";
-    h += '<div class="missed-box"><p>You skipped <b>' + esc(text) + '</b> last time \u2014 want to add them back in?</p></div>';
-  }
-  h += '</div>';
-
-  h += '<div class="upnext"><h3>Coming up</h3>';
-  for (let k = 1; k <= 2; k++){
-    const m = new Date(nm.getTime() + k*7*DAY);
-    const d = dueIn(m), g = gotIn(iso(m)).filter(id => d.some(i => i.id === id));
-    h += '<button class="mrow" data-jump="' + k + '"><span class="mtop">' +
-         '<span class="mlabel">' + span(m) + '</span>' +
-         '<span class="mcount">' + (d.length ? d.length + ' items' : 'nothing due') + '</span></span></button>';
-  }
   h += '</div>';
   view.innerHTML = h;
 }
 
 function renderWeek(){
-  const m = shownWeek(), key = iso(m), due = dueIn(m), got = gotIn(key);
+  const m = shownWeek(), key = iso(m), due = dueIn(), got = gotIn(key);
   let h = '<div class="weekbar"><h1 class="weekdate">' + span(m) + '</h1>' +
           '<div class="nav"><button data-go="-1" aria-label="Previous week">‹</button>' +
           '<button data-go="1" aria-label="Next week">›</button></div></div>';
@@ -539,9 +479,7 @@ function renderWeek(){
   }
 
   const n = due.length, bought = due.filter(i => got.includes(i.id)).length;
-  h += '<p class="status">' + (n === 0
-        ? "No regular shop this week."
-        : (bought === n ? "All " + n + " in the basket." : bought + " of " + n + " in the basket."));
+  h += '<p class="status">' + (bought === n ? "All " + n + " in the basket." : bought + " of " + n + " in the basket.");
   h += '</p>';
   if (state.offset !== 0) h += '<button class="today" data-go="0">Back to this week</button>';
   else h += '<div style="height:16px"></div>';
@@ -552,62 +490,52 @@ function renderWeek(){
     h += '<section class="aisle"><h2>' + a + '</h2>';
     rows.forEach(i => {
       const on = got.includes(i.id);
-      const note = !on && missedLastWeek(i, m)
-        ? '<span class="meta missed">missed last week</span>'
-        : '<span class="meta">' + (i.note ? esc(i.note) : CADENCE[i.cadence].label) + '</span>';
       h += '<button class="row' + (on ? ' got' : '') + '" data-toggle="' + i.id + '">' +
-           '<span class="box">' + TICK + '</span><span class="name">' + esc(i.name) + '</span>' + note + '</button>';
+           '<span class="box">' + TICK + '</span><span class="name">' + esc(i.name) + '</span></button>';
     });
     h += '</section>';
   });
 
-  const rest = state.items.filter(i => !due.includes(i));
-  h += '<details><summary>Add something else to this week</summary>';
+  h += '<details><summary>Add a new item</summary>';
   h += '<div class="field" style="margin-top:14px"><input type="text" id="oneoff" placeholder="Something new, e.g. baking paper">' +
-       '<button class="btn" data-oneoff>Add</button></div>';
-  if (rest.length){
-    h += '<div class="chips">' + rest.map(i => '<button class="chip" data-extra="' + i.id + '">' + esc(i.name) + '</button>').join("") + '</div>';
-  }
-  h += '</details>';
+       '<button class="btn" data-oneoff>Add</button></div></details>';
   view.innerHTML = h;
 }
 
 function renderMonth(){
   const base = shownWeek();
+  const total = state.items.length;
   const weeks = [];
   for (let k = -1; k < 5; k++){
     const m = new Date(base.getTime() + k*7*DAY);
-    const due = dueIn(m), got = gotIn(iso(m)).filter(id => due.some(i => i.id === id));
-    weeks.push({m, n:due.length, got:got.length, off:state.offset + k});
+    const got = gotIn(iso(m)).filter(id => state.items.some(i => i.id === id)).length;
+    weeks.push({m, got, off:state.offset + k});
   }
-  const max = Math.max(1, ...weeks.map(w => w.n));
   let h = '<div class="weekbar"><h1 class="weekdate">' + base.toLocaleDateString("en-GB",{month:"long"}) +
           ' <em>' + base.getFullYear() + '</em></h1>' +
           '<div class="nav"><button data-go="-4" aria-label="Earlier">‹</button>' +
           '<button data-go="4" aria-label="Later">›</button></div></div>';
-  h += '<p class="status">How heavy each shop looks. Spread the big ones out by changing an item\u2019s week in your list.</p><div style="height:12px"></div>';
+  h += '<p class="status">How much of your list you picked up each week.</p><div style="height:12px"></div>';
   weeks.forEach(w => {
-    const pct = Math.round(w.n / max * 100);
-    const donePct = w.n ? Math.round(w.got / w.n * 100) : 0;
+    const pct = total ? Math.round(w.got / total * 100) : 0;
     h += '<button class="mrow' + (w.off === 0 ? ' now' : '') + '" data-jump="' + w.off + '">' +
          '<span class="mtop"><span class="mlabel">' + span(w.m) + '</span>' +
-         '<span class="mcount">' + (w.n ? w.got + ' of ' + w.n : 'nothing due') + '</span></span>' +
-         '<span class="bar"><i style="width:' + pct + '%"><i class="done" style="width:' + donePct + '%"></i></i></span></button>';
+         '<span class="mcount">' + (total ? w.got + ' of ' + total : 'nothing to buy') + '</span></span>' +
+         '<span class="bar"><i class="done" style="width:' + pct + '%"></i></span></button>';
   });
   view.innerHTML = h;
 }
 
 function renderList(){
   let h = '<h1 class="weekdate" style="margin-bottom:6px">My list</h1>' +
-          '<p class="hint">Give each thing a rhythm and it will show up on the right weeks by itself.</p>';
+          '<p class="hint">Everything here shows up every week — tick off what you’re picking up.</p>';
   h += '<div class="field"><input type="text" id="newname" placeholder="Add an item">' +
        '<select id="newcat">' + AISLES.map(a => '<option>' + a + '</option>').join("") + '</select>' +
-       '<select id="newcad">' + Object.keys(CADENCE).map(c => '<option value="' + c + '">' + CADENCE[c].label + '</option>').join("") + '</select>' +
        '<button class="btn" data-add>Add</button></div>';
 
   h += '<h3 class="sec">Paste a whole list</h3>' +
-       '<p class="hint">One item per line. Add a category and rhythm after a vertical bar if you want: <em>Milk | Dairy | weekly</em></p>' +
-       '<textarea id="bulk" placeholder="Tomatoes&#10;Milk | Dairy | weekly&#10;Washing up liquid | Household | monthly"></textarea>' +
+       '<p class="hint">One item per line. Add a category after a vertical bar if you want: <em>Milk | Dairy</em></p>' +
+       '<textarea id="bulk" placeholder="Tomatoes&#10;Milk | Dairy&#10;Washing up liquid | Household"></textarea>' +
        '<div class="field" style="margin-top:10px"><button class="btn" data-bulk>Add these</button></div>';
 
   if (state.items.length){
@@ -619,14 +547,7 @@ function renderList(){
       rows.forEach(i => {
         h += '<div class="item"><span class="iname">' + esc(i.name) + '</span>' +
              '<select data-cat="' + i.id + '">' + AISLES.map(c => '<option' + (c === i.cat ? ' selected' : '') + '>' + c + '</option>').join("") + '</select>' +
-             '<select data-cad="' + i.id + '">' + Object.keys(CADENCE).map(c => '<option value="' + c + '"' + (c === i.cadence ? ' selected' : '') + '>' + CADENCE[c].label + '</option>').join("") + '</select>';
-        const every = CADENCE[i.cadence].every;
-        if (every > 1){
-          h += '<select data-phase="' + i.id + '">';
-          for (let p = 0; p < every; p++) h += '<option value="' + p + '"' + (p === i.phase ? ' selected' : '') + '>week ' + (p+1) + '</option>';
-          h += '</select>';
-        }
-        h += '<button class="del" data-del="' + i.id + '" aria-label="Remove ' + esc(i.name) + '">×</button></div>';
+             '<button class="del" data-del="' + i.id + '" aria-label="Remove ' + esc(i.name) + '">×</button></div>';
       });
       h += '</section>';
     });
@@ -702,12 +623,12 @@ function renderRecipes(){
 }
 
 /* ---------- editing ---------- */
-function addItem(name, cat, cadence){
+function addItem(name, cat){
   name = name.trim();
   if (!name) return;
   state.items.push({
     id: Math.random().toString(36).slice(2,9),
-    name, cat: cat || "Other", cadence: cadence || "weekly", phase: 0, note: ""
+    name, cat: cat || "Other"
   });
 }
 function addMeal(name, ingredients){
@@ -731,19 +652,9 @@ function matchCat(s){
   const q = s.trim().toLowerCase();
   return AISLES.find(a => a.toLowerCase().startsWith(q) || a.toLowerCase().includes(q)) || "Other";
 }
-function matchCad(s){
-  if (!s) return "weekly";
-  const q = s.trim().toLowerCase();
-  if (q.startsWith("w")) return "weekly";
-  if (q.startsWith("f") || q.includes("2") || q.startsWith("bi")) return "fortnightly";
-  if (q.startsWith("m") || q.includes("4")) return "monthly";
-  if (q.startsWith("s") || q.startsWith("o") || q.startsWith("n")) return "sometimes";
-  return "weekly";
-}
-
 /* ---------- events ---------- */
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-tab],[data-goto],[data-go],[data-toggle],[data-extra],[data-jump],[data-add],[data-bulk],[data-del],[data-reset],[data-oneoff],[data-add-recipe],[data-del-recipe],[data-add-meal],[data-del-meal]");
+  const t = e.target.closest("[data-tab],[data-goto],[data-go],[data-toggle],[data-jump],[data-add],[data-bulk],[data-del],[data-reset],[data-oneoff],[data-add-recipe],[data-del-recipe],[data-add-meal],[data-del-meal]");
   if (!t) return;
 
   if (t.dataset.tab){ state.tab = t.dataset.tab; return render(); }
@@ -764,21 +675,14 @@ document.addEventListener("click", e => {
     at === -1 ? list.push(id) : list.splice(at,1);
     save(); return render();
   }
-  if (t.dataset.extra){
-    const key = iso(shownWeek());
-    (state.extras[key] || (state.extras[key] = [])).push(t.dataset.extra);
-    save(); return render();
-  }
   if (t.hasAttribute("data-oneoff")){
     const inp = document.getElementById("oneoff");
     if (!inp.value.trim()) return;
-    addItem(inp.value, "Other", "sometimes");
-    const key = iso(shownWeek());
-    (state.extras[key] || (state.extras[key] = [])).push(state.items[state.items.length-1].id);
+    addItem(inp.value, "Other");
     save(); return render();
   }
   if (t.hasAttribute("data-add")){
-    addItem(document.getElementById("newname").value, document.getElementById("newcat").value, document.getElementById("newcad").value);
+    addItem(document.getElementById("newname").value, document.getElementById("newcat").value);
     save(); return render();
   }
   if (t.hasAttribute("data-bulk")){
@@ -786,7 +690,7 @@ document.addEventListener("click", e => {
     lines.forEach(l => {
       if (!l.trim()) return;
       const p = l.split("|");
-      addItem(p[0], matchCat(p[1]), matchCad(p[2]));
+      addItem(p[0], matchCat(p[1]));
     });
     save(); return render();
   }
@@ -796,7 +700,7 @@ document.addEventListener("click", e => {
   }
   if (t.hasAttribute("data-reset")){
     if (!confirm("Remove every item and all the weeks you have ticked off?")) return;
-    state.items = []; state.checks = {}; state.extras = {};
+    state.items = []; state.checks = {};
     save(); return render();
   }
   if (t.hasAttribute("data-add-recipe")){
@@ -825,13 +729,11 @@ document.addEventListener("click", e => {
 
 document.addEventListener("change", e => {
   const el = e.target;
-  const id = el.dataset.cat || el.dataset.cad || el.dataset.phase;
+  const id = el.dataset.cat;
   if (!id) return;
   const it = state.items.find(i => i.id === id);
   if (!it) return;
-  if (el.dataset.cat) it.cat = el.value;
-  if (el.dataset.cad){ it.cadence = el.value; it.phase = 0; }
-  if (el.dataset.phase) it.phase = Number(el.value);
+  it.cat = el.value;
   save(); render();
 });
 
