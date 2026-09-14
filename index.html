@@ -571,10 +571,11 @@ function renderRecipes(){
           '<p class="hint">Meals you cook, and links you\u2019ve saved.</p>';
 
   h += '<h3 class="sec">Meals I cook</h3>' +
-       '<p class="hint">Ready to cook is worked out from your whole pantry list, not just what\u2019s due this week.</p>';
+       '<p class="hint">Ready to cook is based on what you\u2019ve ticked off this week \u2014 it updates as you shop.</p>';
 
   if (state.meals.length){
-    const pantryNames = state.items.map(i => i.name);
+    const gotIds = gotIn(iso(nowMonday()));
+    const pantryNames = state.items.filter(i => gotIds.includes(i.id)).map(i => i.name);
     state.meals.forEach(m => {
       const missing = m.ingredients.filter(ing => !ingredientInPantry(ing, pantryNames));
       const ready = missing.length === 0;
