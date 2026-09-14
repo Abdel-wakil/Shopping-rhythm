@@ -749,7 +749,8 @@ document.addEventListener("click", e => {
   if (t.dataset.ingPick){
     const v = t.dataset.ingPick;
     draftMealIngredients.has(v) ? draftMealIngredients.delete(v) : draftMealIngredients.add(v);
-    return render();
+    t.classList.toggle("on");
+    return;
   }
   if (t.hasAttribute("data-add-meal")){
     const nameInp = document.getElementById("mname");
