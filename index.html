@@ -8,6 +8,7 @@
 <style>
   :root{
     --paper:#E9ECE2;
+    --paper-deep:#D6DCC8;
     --card:#F7F8F2;
     --ink:#1B2117;
     --ink2:#5D6555;
@@ -200,6 +201,19 @@
   .meal-status{font-size:12px;margin:8px 0 0;color:var(--ink2)}
   .meal-status.ready{color:var(--leaf)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+  /* ---- wider screens: frame the column as a floating card instead of
+     a mobile layout stranded in a sea of blank space ---- */
+  @media (min-width:760px){
+    body{background:var(--paper-deep)}
+    .wrap{
+      max-width:700px;margin:44px auto;background:var(--card);
+      border-radius:20px;padding:0 40px 56px;
+      box-shadow:0 30px 60px -30px rgba(27,33,23,.35);
+    }
+    .masthead{background:var(--card);border-radius:20px 20px 0 0}
+    .tabs{background:var(--card)}
+  }
 </style>
 
 <div class="wrap">
