@@ -200,6 +200,13 @@
   .ing.miss{background:rgba(138,40,70,.1);color:var(--beet)}
   .meal-status{font-size:12px;margin:8px 0 0;color:var(--ink2)}
   .meal-status.ready{color:var(--leaf)}
+  .ipicks{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+  .ipick{
+    border:1px solid var(--line);background:var(--card);border-radius:100px;padding:6px 13px;
+    font:inherit;font-size:13px;color:var(--ink);cursor:pointer;transition:border-color .15s,color .15s,background .15s;
+  }
+  .ipick:hover{border-color:var(--beet);color:var(--beet)}
+  .ipick.on{background:var(--beet);border-color:var(--beet);color:#fff}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
   /* ---- wider screens: frame the column as a floating card instead of
@@ -255,6 +262,7 @@ const db = getFirestore(fbApp);
 const provider = new GoogleAuthProvider();
 
 let cloudUser = null, unsubSnapshot = null, lastCloudPayload = null;
+let draftMealIngredients = new Set();
 
 const AISLES = ["Produce","Bakery","Dairy & eggs","Chilled & deli","Meat & fish","Dry & tinned","Frozen","Drinks","Household","Other"];
 const KEY = "shopping-rhythm-v1";
@@ -608,9 +616,17 @@ function renderRecipes(){
     h += '<div class="empty"><p>No meals added yet.</p></div>';
   }
 
-  h += '<div class="field" style="margin-top:14px"><input type="text" id="mname" placeholder="Meal name">' +
-       '<input type="text" id="mings" placeholder="Ingredients, comma separated">' +
-       '<button class="btn" data-add-meal>Add</button></div>';
+  h += '<div class="field" style="margin-top:14px"><input type="text" id="mname" placeholder="Meal name"></div>';
+  if (state.items.length){
+    h += '<p class="hint" style="margin-bottom:8px">Tap the things it needs:</p>';
+    h += '<div class="ipicks">' + state.items.map(i => {
+      const on = draftMealIngredients.has(i.name);
+      return '<button class="ipick' + (on ? ' on' : '') + '" data-ing-pick="' + esc(i.name) + '">' + esc(i.name) + '</button>';
+    }).join("") + '</div>';
+  } else {
+    h += '<p class="hint">Add things to My list first — then you can pick them as ingredients here.</p>';
+  }
+  h += '<div class="field" style="margin-top:12px"><button class="btn" data-add-meal>Add meal</button></div>';
 
   h += '<h3 class="sec">Saved links</h3>' +
        '<p class="hint">Paste a link and save it here \u2014 tap a card to open it.</p>';
@@ -669,7 +685,7 @@ function matchCat(s){
 }
 /* ---------- events ---------- */
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-tab],[data-goto],[data-go],[data-toggle],[data-jump],[data-add],[data-bulk],[data-del],[data-reset],[data-oneoff],[data-add-recipe],[data-del-recipe],[data-add-meal],[data-del-meal]");
+  const t = e.target.closest("[data-tab],[data-goto],[data-go],[data-toggle],[data-jump],[data-add],[data-bulk],[data-del],[data-reset],[data-oneoff],[data-add-recipe],[data-del-recipe],[data-add-meal],[data-del-meal],[data-ing-pick]");
   if (!t) return;
 
   if (t.dataset.tab){ state.tab = t.dataset.tab; return render(); }
@@ -730,10 +746,16 @@ document.addEventListener("click", e => {
     state.recipes = state.recipes.filter(r => r.id !== t.dataset.delRecipe);
     save(); return render();
   }
+  if (t.dataset.ingPick){
+    const v = t.dataset.ingPick;
+    draftMealIngredients.has(v) ? draftMealIngredients.delete(v) : draftMealIngredients.add(v);
+    return render();
+  }
   if (t.hasAttribute("data-add-meal")){
-    const nameInp = document.getElementById("mname"), ingInp = document.getElementById("mings");
-    if (!nameInp.value.trim()) return;
-    addMeal(nameInp.value, ingInp.value);
+    const nameInp = document.getElementById("mname");
+    if (!nameInp.value.trim() || !draftMealIngredients.size) return;
+    addMeal(nameInp.value, Array.from(draftMealIngredients));
+    draftMealIngredients = new Set();
     save(); return render();
   }
   if (t.dataset.delMeal){
@@ -757,7 +779,7 @@ document.addEventListener("keydown", e => {
   if (e.target.id === "newname") document.querySelector("[data-add]").click();
   if (e.target.id === "oneoff") document.querySelector("[data-oneoff]").click();
   if (e.target.id === "rurl" || e.target.id === "rtitle") document.querySelector("[data-add-recipe]").click();
-  if (e.target.id === "mname" || e.target.id === "mings") document.querySelector("[data-add-meal]").click();
+  if (e.target.id === "mname") document.querySelector("[data-add-meal]").click();
 });
 
 renderAccount();
