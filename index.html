@@ -245,7 +245,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { getFirestore, doc, setDoc, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -314,10 +314,10 @@ function enterSpace(){
 }
 function switchSpace(next){
   if (next.type === "household" && !cloudUser){
-    signInWithPopup(auth, provider).then(result => {
+    signInAnonymously(auth).then(result => {
       cloudUser = result.user;
       spaces.active = next; saveSpaces(); enterSpace(); renderAccount();
-    }).catch(e => alert("Sign-in failed: " + e.message));
+    }).catch(e => alert("Couldn't open this list: " + e.message));
     return;
   }
   spaces.active = next;
@@ -328,11 +328,11 @@ function createSharedList(){
   const name = prompt("Name this shared list (e.g. \"Me & Sam\"):");
   if (!name || !name.trim()) return;
   if (!cloudUser){
-    signInWithPopup(auth, provider).then(result => {
+    signInAnonymously(auth).then(result => {
       cloudUser = result.user;
       renderAccount();
       finishCreateSharedList(name.trim());
-    }).catch(e => alert("Sign-in failed: " + e.message));
+    }).catch(e => alert("Couldn't create this list: " + e.message));
     return;
   }
   finishCreateSharedList(name.trim());
@@ -504,16 +504,20 @@ function renderAccount(){
   const el = document.getElementById("account");
   if (!el) return;
   if (cloudUser){
+    const name = cloudUser.isAnonymous ? "Guest" : (cloudUser.displayName || "Synced").split(" ")[0];
     el.innerHTML = '<span class="acct">' +
       (cloudUser.photoURL ? '<img src="' + esc(cloudUser.photoURL) + '" alt="">' : '') +
-      '<span>' + esc((cloudUser.displayName || "Synced").split(" ")[0]) + '</span>' +
+      '<span>' + esc(name) + '</span>' +
       '<button id="signout">Sign out</button></span>';
     document.getElementById("signout").onclick = () => signOut(auth);
   } else {
-    const label = spaces.active.type === "household" ? "Sign in to open this list" : "Sign in to sync";
+    const isHousehold = spaces.active.type === "household";
+    const label = isHousehold ? "Sign in to open this list" : "Sign in to sync";
     el.innerHTML = '<button class="signin-btn" id="signin">' + esc(label) + '</button>';
-    document.getElementById("signin").onclick = () =>
-      signInWithPopup(auth, provider).catch(e => alert("Sign-in failed: " + e.message));
+    document.getElementById("signin").onclick = () => {
+      const p = isHousehold ? signInAnonymously(auth) : signInWithPopup(auth, provider);
+      p.catch(e => alert("Sign-in failed: " + e.message));
+    };
   }
 }
 function startSync(){
@@ -550,6 +554,10 @@ function stopSync(){
 }
 onAuthStateChanged(auth, user => {
   cloudUser = user;
+  if (!user && spaces.active.type === "household"){
+    signInAnonymously(auth).catch(e => console.error("Anonymous sign-in failed", e));
+    return; // onAuthStateChanged fires again once that resolves
+  }
   if (user) startSync(); else stopSync();
   renderAccount();
   renderSpaceSwitcher();
