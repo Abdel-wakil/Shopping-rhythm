@@ -43,7 +43,8 @@
   .mark span{color:var(--beet)}
   .saved{font-size:13px;color:var(--ink2);opacity:0;transition:opacity .4s}
   .saved.on{opacity:1}
-  .mast-right{display:flex;align-items:center;gap:10px}
+  .mast-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+  .spacesel{font-size:13px;padding:6px 10px;min-width:0;max-width:160px}
   .acct{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2)}
   .acct img{width:22px;height:22px;border-radius:50%;display:block}
   .acct button{font:inherit;font-size:12px;color:var(--ink2);background:none;border:0;text-decoration:underline;cursor:pointer;padding:0}
@@ -227,6 +228,7 @@
   <div class="masthead">
     <div class="mark">Shopping <span>rhythm</span></div>
     <div class="mast-right">
+      <select id="spacesel" class="spacesel"></select>
       <div class="saved" id="saved">Saved</div>
       <div id="account"></div>
     </div>
@@ -263,6 +265,96 @@ const provider = new GoogleAuthProvider();
 
 let cloudUser = null, unsubSnapshot = null, lastCloudPayload = null;
 let draftMealIngredients = new Set();
+
+/* ---------- spaces ----------
+   "Personal" is your own private list (users/{uid}). A "shared list" is a
+   households/{id} document instead — anyone signed in who has that link
+   can read and write it, like sharing a doc by link. */
+const SPACES_KEY = "shopping-rhythm-spaces";
+function loadSpaces(){
+  try{
+    const raw = localStorage.getItem(SPACES_KEY);
+    if (raw) return JSON.parse(raw);
+  }catch(e){}
+  return { active: {type:"personal"}, known: [] };
+}
+function saveSpaces(){ localStorage.setItem(SPACES_KEY, JSON.stringify(spaces)); }
+let spaces = loadSpaces();
+
+function randId(){
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2,"0")).join("");
+}
+function spaceStorageKey(){
+  return spaces.active.type === "household" ? KEY + ":h:" + spaces.active.id : KEY + ":personal";
+}
+function spaceDocRef(){
+  if (!cloudUser) return null;
+  return spaces.active.type === "household" ? doc(db, "households", spaces.active.id) : doc(db, "users", cloudUser.uid);
+}
+function spaceLabel(){
+  if (spaces.active.type === "personal") return "Personal";
+  const known = spaces.known.find(k => k.id === spaces.active.id);
+  return known ? known.name : "Shared list";
+}
+function checkJoinLink(){
+  const params = new URLSearchParams(location.search);
+  const h = params.get("h");
+  if (!h) return;
+  const n = params.get("n") ? decodeURIComponent(params.get("n")) : "Shared list";
+  if (!spaces.known.some(k => k.id === h)) spaces.known.push({id:h, name:n});
+  spaces.active = {type:"household", id:h};
+  saveSpaces();
+  history.replaceState(null, "", location.pathname);
+}
+function enterSpace(){
+  state = {items:[], checks:{}, recipes:[], meals:[], tab:state.tab, offset:0, seedVersion:0, mealSeedVersion:0};
+  load().then(() => { startSync(); render(); renderSpaceSwitcher(); });
+}
+function switchSpace(next){
+  if (next.type === "household" && !cloudUser){
+    signInWithPopup(auth, provider).then(result => {
+      cloudUser = result.user;
+      spaces.active = next; saveSpaces(); enterSpace(); renderAccount();
+    }).catch(e => alert("Sign-in failed: " + e.message));
+    return;
+  }
+  spaces.active = next;
+  saveSpaces();
+  enterSpace();
+}
+function createSharedList(){
+  const name = prompt("Name this shared list (e.g. \"Me & Sam\"):");
+  if (!name || !name.trim()) return;
+  if (!cloudUser){
+    signInWithPopup(auth, provider).then(result => {
+      cloudUser = result.user;
+      renderAccount();
+      finishCreateSharedList(name.trim());
+    }).catch(e => alert("Sign-in failed: " + e.message));
+    return;
+  }
+  finishCreateSharedList(name.trim());
+}
+function finishCreateSharedList(name){
+  const id = randId();
+  spaces.known.push({id, name});
+  switchSpace({type:"household", id});
+  const link = location.origin + location.pathname + "?h=" + id + "&n=" + encodeURIComponent(name);
+  prompt("Share this link with your friend:", link);
+}
+function renderSpaceSwitcher(){
+  const el = document.getElementById("spacesel");
+  if (!el) return;
+  let h = '<option value="personal"' + (spaces.active.type === "personal" ? " selected" : "") + '>Personal</option>';
+  h += spaces.known.map(k => {
+    const sel = spaces.active.type === "household" && spaces.active.id === k.id;
+    return '<option value="h:' + k.id + '"' + (sel ? " selected" : "") + '>' + esc(k.name) + '</option>';
+  }).join("");
+  h += '<option value="__new">+ Share a new list…</option>';
+  el.innerHTML = h;
+}
 
 const AISLES = ["Produce","Bakery","Dairy & eggs","Chilled & deli","Meat & fish","Dry & tinned","Frozen","Drinks","Household","Other"];
 const KEY = "shopping-rhythm-v1";
@@ -360,11 +452,13 @@ function save(){
   saveTimer = setTimeout(() => {
     try{
       const payload = {items:state.items, checks:state.checks, recipes:state.recipes, meals:state.meals, seedVersion:state.seedVersion, mealSeedVersion:state.mealSeedVersion};
+      if (spaces.active.type === "household") payload.name = spaceLabel();
       const json = JSON.stringify(payload);
-      localStorage.setItem(KEY, json);
-      if (cloudUser){
+      localStorage.setItem(spaceStorageKey(), json);
+      const ref = spaceDocRef();
+      if (ref){
         lastCloudPayload = json;
-        setDoc(doc(db, "users", cloudUser.uid), payload).catch(e => console.error("Cloud save failed", e));
+        setDoc(ref, payload).catch(e => console.error("Cloud save failed", e));
       }
       const el = document.getElementById("saved");
       el.classList.add("on");
@@ -374,7 +468,7 @@ function save(){
 }
 async function load(){
   try{
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(spaceStorageKey());
     if (raw) Object.assign(state, JSON.parse(raw));
   }catch(e){ /* nothing stored yet */ }
   if (!state.items) state.items = [];
@@ -383,6 +477,8 @@ async function load(){
   if (!state.meals) state.meals = [];
   if (!state.seedVersion) state.seedVersion = 0;
   if (!state.mealSeedVersion) state.mealSeedVersion = 0;
+
+  if (spaces.active.type !== "personal") return;
 
   const existing = new Set(state.items.map(i => i.name.trim().toLowerCase()));
   let added = false;
@@ -414,40 +510,49 @@ function renderAccount(){
       '<button id="signout">Sign out</button></span>';
     document.getElementById("signout").onclick = () => signOut(auth);
   } else {
-    el.innerHTML = '<button class="signin-btn" id="signin">Sign in to sync</button>';
+    const label = spaces.active.type === "household" ? "Sign in to open this list" : "Sign in to sync";
+    el.innerHTML = '<button class="signin-btn" id="signin">' + esc(label) + '</button>';
     document.getElementById("signin").onclick = () =>
       signInWithPopup(auth, provider).catch(e => alert("Sign-in failed: " + e.message));
   }
 }
-function startSync(user){
-  cloudUser = user;
+function startSync(){
+  const ref = spaceDocRef();
   if (unsubSnapshot) unsubSnapshot();
-  unsubSnapshot = onSnapshot(doc(db, "users", user.uid), snap => {
+  unsubSnapshot = null;
+  if (!ref) return;
+  unsubSnapshot = onSnapshot(ref, snap => {
     if (!snap.exists()){
       const payload = {items:state.items, checks:state.checks, recipes:state.recipes, meals:state.meals, seedVersion:state.seedVersion, mealSeedVersion:state.mealSeedVersion};
+      if (spaces.active.type === "household") payload.name = spaceLabel();
       lastCloudPayload = JSON.stringify(payload);
-      setDoc(doc(db, "users", user.uid), payload).catch(e => console.error("Cloud save failed", e));
+      setDoc(ref, payload).catch(e => console.error("Cloud save failed", e));
       return;
     }
     const d = snap.data();
+    if (spaces.active.type === "household" && d.name){
+      const known = spaces.known.find(k => k.id === spaces.active.id);
+      if (known && known.name !== d.name){ known.name = d.name; saveSpaces(); renderSpaceSwitcher(); }
+    }
     const payload = {items:d.items||[], checks:d.checks||{}, recipes:d.recipes||[], meals:d.meals||[], seedVersion:d.seedVersion||0, mealSeedVersion:d.mealSeedVersion||0};
     const json = JSON.stringify(payload);
     if (json === lastCloudPayload) return;
     lastCloudPayload = json;
     Object.assign(state, payload);
-    localStorage.setItem(KEY, json);
+    localStorage.setItem(spaceStorageKey(), json);
     render();
   }, e => console.error("Sync error", e));
 }
 function stopSync(){
   if (unsubSnapshot) unsubSnapshot();
   unsubSnapshot = null;
-  cloudUser = null;
   lastCloudPayload = null;
 }
 onAuthStateChanged(auth, user => {
-  if (user) startSync(user); else stopSync();
+  cloudUser = user;
+  if (user) startSync(); else stopSync();
   renderAccount();
+  renderSpaceSwitcher();
 });
 
 /* ---------- render ---------- */
@@ -767,6 +872,14 @@ document.addEventListener("click", e => {
 
 document.addEventListener("change", e => {
   const el = e.target;
+  if (el.id === "spacesel"){
+    const v = el.value;
+    if (v === "__new") createSharedList();
+    else if (v === "personal") switchSpace({type:"personal"});
+    else if (v.startsWith("h:")) switchSpace({type:"household", id:v.slice(2)});
+    renderSpaceSwitcher();
+    return;
+  }
   const id = el.dataset.cat;
   if (!id) return;
   const it = state.items.find(i => i.id === id);
@@ -783,6 +896,8 @@ document.addEventListener("keydown", e => {
   if (e.target.id === "mname") document.querySelector("[data-add-meal]").click();
 });
 
+checkJoinLink();
 renderAccount();
+renderSpaceSwitcher();
 load().then(render);
 </script>
